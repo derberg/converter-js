@@ -10,6 +10,16 @@ const red = text => `\x1b[31m${text}\x1b[0m`;
 
 let asyncapiFile;
 let version;
+let output;
+
+const parseArguments = (asyncAPIPath, v) => {
+  asyncapiFile = path.resolve(asyncAPIPath);
+  version = v;
+}
+
+const parseOutput = (filePath) => {
+  output = path.resolve(filePath);
+}
 
 const showErrorAndExit = err => {
   console.error(red('Something went wrong:'));
@@ -20,11 +30,9 @@ const showErrorAndExit = err => {
 program
   .version(packageInfo.version)
   .arguments('<document> [version]')
-  .action((asyncAPIPath, v) => {
-    asyncapiFile = path.resolve(asyncAPIPath);
-    version = v;
-  })
+  .action(parseArguments)
   .option('--id <id>', 'application id (defaults to a generated one)')
+  .option('-o, --output <outputFile>', 'file where to put the converted AsyncAPI document', parseOutput)
   .parse(process.argv);
 
 if (!asyncapiFile) {
@@ -32,14 +40,25 @@ if (!asyncapiFile) {
   program.help(); // This exits the process
 }
 if (!version) {
-  version = '2.1.0';
+  version = '2.3.0';
 }
 
 try {
   const asyncapi = fs.readFileSync(asyncapiFile, 'utf-8');
-  console.log(converter.convert(asyncapi, version, {
+  let converted = converter.convert(asyncapi, version, {
     id: program.id,
-  }));
+  });
+
+  // JSON case
+  if (typeof converted === 'object') {
+    converted = JSON.stringify(converted, undefined, 2);
+  }
+
+  if (output) {
+    fs.writeFileSync(output, converted, 'utf-8');
+  } else {
+    console.log(converted);
+  }
 } catch (e) {
   showErrorAndExit(e);
 }
